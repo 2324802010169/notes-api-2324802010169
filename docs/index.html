@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bài 1 - Hello Cloud - 2324802010169</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #999; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #eee; }
+  </style>
+</head>
+<body>
+  <h1>Bài 1: Lập trình trên máy ảo đám mây đầu tiên</h1>
+  <p>MSSV: 2324802010169 | Họ tên: [Phạm Lê Trọng Ân]</p>
+
+  <h2>So sánh máy cá nhân và Codespace</h2>
+  <table>
+    <tr><th>Tiêu chí</th><th>Máy cá nhân</th><th>Codespace</th></tr>
+    <tr>
+      <td>Thời gian từ lúc bắt đầu đến khi chạy được <code>node -v</code></td>
+      <td>Khoảng [5] phút (tải, cài đặt Node.js, mở terminal, gõ <code>node -v</code>)</td>
+      <td>[X] giây (từ lúc bấm Create codespace đến khi gõ được <code>node -v</code>, kết quả v22.23.4)</td>
+    </tr>
+    <tr>
+      <td>Số CPU, RAM</td>
+      <td>[X] CPU, [X] GB RAM</td>
+      <td>2 CPU, 7.8 GB RAM (lấy từ API)</td>
+    </tr>
+    <tr>
+      <td>Hệ điều hành</td>
+      <td>[Windows 11]</td>
+      <td>Linux 6.8.0-1064-azure</td>
+    </tr>
+    <tr>
+      <td>Cách truy cập từ thiết bị khác</td>
+      <td>Chỉ truy cập được qua IP nội bộ trong cùng mạng wifi; muốn ra internet phải mở cổng router hoặc dùng công cụ chuyển tiếp như ngrok.</td>
+      <td>Chuyển cổng 3000 sang Public, có ngay URL https dạng *.app.github.dev, mở được trên điện thoại.</td>
+    </tr>
+    <tr>
+      <td>Chi phí, đo bằng gì</td>
+      <td>Điện năng và khấu hao máy; không có đồng hồ đo riêng cho từng công việc.</td>
+      <td>[X] core-giờ, xem tại Settings → Billing → Usage của GitHub.</td>
+    </tr>
+  </table>
+
+  <h2>Đối chiếu 5 đặc tính NIST</h2>
+  <ol>
+    <li><b>Tự phục vụ theo yêu cầu:</b> tôi tự bấm Create codespace trên GitHub và có máy ảo chạy sau [X] giây, không cần ai phê duyệt hay cấp phát thủ công.</li>
+    <li><b>Truy cập mạng rộng:</b> tôi chuyển cổng 3000 sang Public và mở được API trên điện thoại qua URL https, chỉ cần trình duyệt và internet.</li>
+    <li><b>Gộp tài nguyên:</b> máy ảo của tôi (hostname codespaces-ac4b0b, 2 CPU, 7.8 GB RAM, nhân Linux azure) được cắt ra từ kho máy chủ dùng chung của GitHub trên hạ tầng Azure, phục vụ nhiều người dùng cùng lúc.</li>
+    <li><b>Co giãn nhanh:</b> có thể tạo thêm codespace hoặc đổi cấu hình máy (ví dụ lên 4 hoặc 8 nhân) chỉ bằng vài cú bấm, và dừng hoặc xóa khi không cần.</li>
+    <li><b>Dịch vụ đo lường được:</b> mục Billing → Usage của GitHub ghi lại số core-giờ Codespaces tôi đã dùng: [X] core-giờ.</li>
+  </ol>
+</body>
+</html>
