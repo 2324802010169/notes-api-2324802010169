@@ -53,5 +53,42 @@
     <li><b>Co giãn nhanh:</b> có thể tạo thêm codespace hoặc đổi cấu hình máy (ví dụ lên 4 hoặc 8 nhân) chỉ bằng vài cú bấm, và dừng hoặc xóa khi không cần.</li>
     <li><b>Dịch vụ đo lường được:</b> mục Billing → Usage của GitHub ghi lại số core-giờ Codespaces tôi đã dùng: [X] core-giờ.</li>
   </ol>
+    <hr>
+  <h1>Bài 2: Ảo hóa, container và mô phỏng trung tâm dữ liệu</h1>
+  <p>Package GHCR: <a href="https://github.com/users/2324802010169/packages/container/package/notes-api">ghcr.io/2324802010169/notes-api:1.0</a>
+     | <a href="https://github.com/2324802010169/notes-api-2324802010169/blob/main/Dockerfile">Dockerfile</a></p>
+
+  <h2>Bảng 1: Máy ảo và container</h2>
+  <table>
+    <tr><th>Tiêu chí</th><th>Codespace (máy ảo)</th><th>Container notes2</th></tr>
+    <tr><td>Thời gian khởi động</td><td>0m0.417s giây (cấp phát cả máy ảo, nạp hệ điều hành)</td><td>0,417 giây (<code>time docker run --rm notes-api:1.0 node -e "1"</code>, real = 0m0.417s)</td></tr>
+    <tr><td>Kích thước</td><td>Hạn mức đĩa 15 GB-tháng</td><td>251 MB dung lượng đĩa (nội dung nén 63,3 MB) theo <code>docker images</code></td></tr>
+    <tr><td>Nhân hệ điều hành</td><td>Riêng: 6.8.0-1070-azure</td><td>Dùng chung với máy chủ: <code>docker exec notes1 uname -r</code> cũng ra 6.8.0-1070-azure, giống nhân ngoài</td></tr>
+    <tr><td>Mức cô lập</td><td>Mức phần cứng: hypervisor, mỗi VM có hệ điều hành riêng, cô lập mạnh</td><td>Mức hệ điều hành: namespaces cô lập tiến trình, cgroups giới hạn tài nguyên; nhẹ, khởi động nhanh nhưng cô lập yếu hơn vì chung nhân</td></tr>
+  </table>
+
+  <h3>Kết quả hai bản sao</h3>
+  <table>
+    <tr><th>Container</th><th>host (từ API)</th><th>cpus</th><th>memoryGB</th><th>MEM USAGE / LIMIT (docker stats)</th></tr>
+    <tr><td>notes1 (cổng 3000, không giới hạn)</td><td>4cca852b75f2</td><td>2</td><td>7.8</td><td>17.15MiB / 7.756GiB</td></tr>
+    <tr><td>notes2 (cổng 3001, --cpus=0.5 --memory=128m)</td><td>ec33f70f98e8</td><td>2</td><td>7.8</td><td>15.33MiB / 128MiB</td></tr>
+  </table>
+  <p>Trường host khác nhau vì đó là ID container, nhưng cpus và memoryGB của notes2 vẫn bằng của máy Codespace (2 CPU, 7.8 GB). Giới hạn 128 MiB chỉ hiện ở cột LIMIT của docker stats.</p>
+
+  <h2>Bảng 2: Mô phỏng CloudSim Plus</h2>
+  <p>Giá trị gốc (suy từ kết quả chạy lần 0): HOSTS=1, HOST_PES=8, VMS=2, VM_PES=4, CLOUDLETS=4, mỗi cloudlet dài 10000 MI dùng 2 lõi.</p>
+  <table>
+    <tr><th>Lần</th><th>Thay đổi</th><th>Thời điểm hoàn thành cloudlet cuối (giây mô phỏng)</th></tr>
+    <tr><td>0</td><td>Giữ nguyên</td><td>20,1 (cả 4 cloudlet bắt đầu 0,1 và kết thúc 20,1)</td></tr>
+    <tr><td>1</td><td>Nhân đôi VMS (2 lên 4)</td><td>20,1 (cả 4 cloudlet bắt đầu 0,1 và kết thúc 20,1)</td></tr>
+    <tr><td>2</td><td>Nhân đôi CLOUDLETS (4 lên 8)</td><td>(cả 4 cloudlet bắt đầu 0,1 và kết thúc 40,1)</td></tr>
+    <tr><td>3</td><td>CloudletSchedulerSpaceShared</td><td>(cả 4 cloudlet bắt đầu 0,1 và kết thúc 40,1)</td></tr>
+  </table>
+  <p>Nhận xét lần 0: máy chủ có 8 lõi, hai VM dùng 4 lõi mỗi VM nên vừa đủ 8 lõi. Mỗi VM chạy 2 cloudlet, mỗi cloudlet cần 2 lõi, tổng 4 lõi bằng số lõi của VM, nên không có tranh chấp và cả 4 cloudlet cùng xong ở 20,1 giây. [THÊM 1-2 CÂU NHẬN XÉT CHO LẦN 1-3 THEO ĐÚNG KẾT QUẢ BẠN THẤY]</p>
+
+  <h2>Câu hỏi phản biện</h2>
+  <p><b>1. Vì sao notes2 vẫn báo memoryGB bằng RAM máy chủ?</b> Hàm os.totalmem() và os.cpus() đọc thông tin từ nhân Linux dùng chung (như /proc/meminfo), còn giới hạn --memory và --cpus do cgroups áp đặt từ bên ngoài nên các hàm này không thấy. Trong thí nghiệm, notes2 báo 7.8 GB, 2 CPU nhưng docker stats cho thấy giới hạn thật là 128MiB. Hệ quả: ứng dụng Node.js hoặc Java không nên dựa vào các số này để tự chọn kích thước bộ nhớ hay số luồng. Cần đặt giới hạn rõ ràng (ví dụ --max-old-space-size cho Node, -Xmx hoặc cờ nhận biết container cho Java) hoặc đọc giới hạn cgroup (/sys/fs/cgroup). Nếu không, tiến trình có thể vượt giới hạn và bị nhân kết thúc (OOM kill).</p>
+  <p><b>2. Time-shared và space-shared khác nhau thế nào?</b> Time-shared chia thời gian lõi cho mọi cloudlet chạy đồng thời nên mỗi cái chậm đi và chúng kết thúc gần nhau. Space-shared cấp lõi riêng, cloudlet dư phải xếp hàng, nên các cái đầu xong sớm còn các cái sau chờ lâu. Kết quả lần 3 của tôi: [MÔ TẢ THEO BẢNG 2]. Với gói giá rẻ, nhà cung cấp thường chọn time-shared (kèm đăng ký vượt tài nguyên) vì tận dụng hết công suất và phục vụ nhiều khách hơn trên cùng phần cứng, đổi lại hiệu năng kém ổn định.</p>
+  <p><b>3. Mô phỏng giúp gì và có thể sai lệch ở đâu?</b> Mô phỏng cho phép thử quy mô, chính sách xếp VM và lập lịch với chi phí rất thấp và lặp lại được, trước khi thuê hạ tầng thật. Nhưng mô hình đã đơn giản hóa: bỏ qua nhiễu từ khách thuê khác, độ trễ mạng và đĩa, lỗi phần cứng, chi phí ảo hóa, và giả định tải gọn gàng, nên số liệu thật thường khác.</p>
 </body>
 </html>
