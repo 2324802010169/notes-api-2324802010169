@@ -90,5 +90,49 @@
   <p><b>1. Vì sao notes2 vẫn báo memoryGB bằng RAM máy chủ?</b> Hàm os.totalmem() và os.cpus() đọc thông tin từ nhân Linux dùng chung (như /proc/meminfo), còn giới hạn --memory và --cpus do cgroups áp đặt từ bên ngoài nên các hàm này không thấy. Trong thí nghiệm, notes2 báo 7.8 GB, 2 CPU nhưng docker stats cho thấy giới hạn thật là 128MiB. Hệ quả: ứng dụng Node.js hoặc Java không nên dựa vào các số này để tự chọn kích thước bộ nhớ hay số luồng. Cần đặt giới hạn rõ ràng (ví dụ --max-old-space-size cho Node, -Xmx hoặc cờ nhận biết container cho Java) hoặc đọc giới hạn cgroup (/sys/fs/cgroup). Nếu không, tiến trình có thể vượt giới hạn và bị nhân kết thúc (OOM kill).</p>
   <p><b>2. Time-shared và space-shared khác nhau thế nào?</b> Time-shared chia thời gian lõi cho mọi cloudlet chạy đồng thời nên mỗi cái chậm đi và chúng kết thúc gần nhau. Space-shared cấp lõi riêng, cloudlet dư phải xếp hàng, nên các cái đầu xong sớm còn các cái sau chờ lâu. Kết quả lần 3 của tôi: [MÔ TẢ THEO BẢNG 2]. Với gói giá rẻ, nhà cung cấp thường chọn time-shared (kèm đăng ký vượt tài nguyên) vì tận dụng hết công suất và phục vụ nhiều khách hơn trên cùng phần cứng, đổi lại hiệu năng kém ổn định.</p>
   <p><b>3. Mô phỏng giúp gì và có thể sai lệch ở đâu?</b> Mô phỏng cho phép thử quy mô, chính sách xếp VM và lập lịch với chi phí rất thấp và lặp lại được, trước khi thuê hạ tầng thật. Nhưng mô hình đã đơn giản hóa: bỏ qua nhiễu từ khách thuê khác, độ trễ mạng và đĩa, lỗi phần cứng, chi phí ảo hóa, và giả định tải gọn gàng, nên số liệu thật thường khác.</p>
+
+    <hr>
+  <h1>Bài 3: Lưu trữ phân tán: NoSQL và lưu trữ đối tượng</h1>
+  <p>Ghi chú: không đăng ký được MongoDB Atlas, nên thay bằng cụm 3 nút MongoDB Community (replica set rs0: 1 primary, 2 secondary) dựng bằng Docker Compose trong Codespace. Cùng mô hình nhân bản như cụm 3 nút của Atlas. Tệp đính kèm lưu trên Supabase Storage (bucket attachments).</p>
+  <p><a href="https://github.com/2324802010169/notes-api-2324802010169/commit/87d2c59">Commit Bai 3</a></p>
+
+  <h2>Kết quả đo chỉ mục (explain.js, 2000 ghi chú, truy vấn tags = docker)</h2>
+  <table>
+    <tr><th>Cách truy vấn</th><th>docsExamined</th><th>returned</th><th>ms</th></tr>
+    <tr><td>Quét toàn bộ (hint $natural)</td><td>2000</td><td>571</td><td>3</td></tr>
+    <tr><td>Dùng chỉ mục tags</td><td>571</td><td>571</td><td>1</td></tr>
+  </table>
+  <p>Chỉ mục giảm số tài liệu phải quét từ 2000 xuống 571, tức khoảng 3,5 lần. Mức giảm không lớn vì tag docker khớp khoảng 28,5% tài liệu (571/2000). Chỉ mục có lợi nhất khi truy vấn chọn lọc cao.</p>
+  <p>Nhân bản: rs.status() cho mongo1 PRIMARY, mongo2 SECONDARY, mongo3 SECONDARY. Đếm tài liệu owner=seed trên mongo2 (đọc từ secondary) ra 2000, bằng số đã chèn vào primary.</p>
+
+  <h2>Sơ đồ so sánh replica set MongoDB và HDFS</h2>
+  <svg viewBox="0 0 700 240" width="100%" role="img" aria-label="So sanh MongoDB replica set va HDFS" style="max-width:700px">
+    <style>text{font:13px sans-serif} .b{fill:#eef;stroke:#557} .h{fill:#efe;stroke:#575}</style>
+    <text x="20" y="22" font-weight="bold">MongoDB replica set (3 nút)</text>
+    <rect class="b" x="20" y="40" width="190" height="45"/><text x="40" y="67">mongo1: PRIMARY</text>
+    <rect class="b" x="20" y="110" width="190" height="45"/><text x="35" y="137">mongo2: SECONDARY</text>
+    <rect class="b" x="20" y="180" width="190" height="45"/><text x="35" y="207">mongo3: SECONDARY</text>
+    <path d="M115 85V110M115 155V180" stroke="#557" fill="none"/>
+    <text x="125" y="102" font-size="11">nhân bản oplog</text>
+    <text x="380" y="22" font-weight="bold">HDFS (hệ số nhân bản 3)</text>
+    <rect class="h" x="380" y="40" width="300" height="45"/><text x="395" y="67">NameNode: siêu dữ liệu, vị trí khối</text>
+    <rect class="h" x="380" y="110" width="90" height="45"/><text x="388" y="137">DataNode 1</text>
+    <rect class="h" x="480" y="110" width="90" height="45"/><text x="488" y="137">DataNode 2</text>
+    <rect class="h" x="580" y="110" width="90" height="45"/><text x="588" y="137">DataNode 3</text>
+    <text x="380" y="190" font-size="12">Mỗi khối 128 MB có 3 bản trên 3 DataNode khác nhau</text>
+    <path d="M425 85V110M525 85V110M625 85V110" stroke="#575" fill="none"/>
+  </svg>
+  <table>
+    <tr><th>Tiêu chí</th><th>MongoDB replica set</th><th>HDFS</th></tr>
+    <tr><td>Đơn vị nhân bản</td><td>Toàn bộ tập dữ liệu (mọi tài liệu) trên mỗi nút</td><td>Từng khối tệp (mặc định 128 MB), mỗi khối nhân bản riêng</td></tr>
+    <tr><td>Điều phối</td><td>Bầu chọn primary giữa các nút, không có nút quản lý riêng</td><td>NameNode tập trung giữ siêu dữ liệu, DataNode giữ khối</td></tr>
+    <tr><td>Ghi</td><td>Chỉ ghi vào primary, secondary sao chép nhật ký thao tác (oplog)</td><td>Ghi theo đường ống qua các DataNode giữ bản sao</td></tr>
+    <tr><td>Tự phục hồi</td><td>Primary hỏng thì bầu primary mới</td><td>DataNode hỏng thì NameNode tạo thêm bản sao ở nút khác</td></tr>
+  </table>
+
+  <h2>Câu hỏi phản biện</h2>
+  <p><b>1. Với 2 triệu tài liệu và giới hạn 100 thao tác/giây?</b> docsExamined của quét toàn bộ tăng tuyến tính theo kích thước bộ sưu tập: từ 2000 lên 2 triệu (gấp 1000 lần), nên mỗi truy vấn quét toàn bộ phải đọc khoảng 2 triệu tài liệu thay vì 2000. Thời gian mỗi thao tác cũng tăng theo (ước tính từ 3 ms lên cỡ vài giây, chỉ là ngoại suy). Một thao tác lâu như vậy chiếm tài nguyên của cụm miễn phí và các thao tác khác phải xếp hàng, nên thực tế không thể đạt 100 thao tác/giây. Với chỉ mục, docsExamined bằng số tài liệu khớp. Tỉ lệ khớp tag docker (khoảng 28,5%) giữ nguyên thì khoảng 570 nghìn tài liệu, vẫn nhiều, vì vậy nên kết hợp thêm phân trang (limit) hoặc chỉ mục kết hợp với tiêu chí chọn lọc hơn.</p>
+  <p><b>2. Vì sao lưu tệp trên Supabase Storage, chỉ lưu URL trong MongoDB?</b> Tài liệu MongoDB bị giới hạn 16 MB, và nhét nội dung tệp vào làm tài liệu phình to, tốn bộ nhớ đệm và băng thông mỗi lần đọc ghi chú dù không cần tệp. Kho đối tượng sinh ra để lưu tệp lớn, rẻ hơn, phân phối qua URL/CDN, và có thể tải lên hoặc tải xuống mà không đi qua cơ sở dữ liệu. Tách ra giúp truy vấn nhanh, sao lưu và nhân bản cơ sở dữ liệu nhẹ hơn.</p>
+  <p><b>3. Mục tiêu chung của con số 3 và khác biệt về đơn vị nhân bản?</b> Mục tiêu chung là chịu lỗi và sẵn sàng cao: mất 1 nút (hoặc 1 bản sao) vẫn còn ít nhất 2 bản dữ liệu, và vẫn đủ đa số để hoạt động (với MongoDB, 2 trên 3 nút để bầu primary). Khác biệt: MongoDB nhân bản cả tập dữ liệu trên mỗi nút trong replica set, còn HDFS nhân bản từng khối tệp và rải các bản sao lên nhiều DataNode, nên dữ liệu lớn được phân tán chứ không phải mỗi nút giữ đủ mọi thứ.</p>
 </body>
 </html>
